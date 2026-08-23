@@ -121,24 +121,41 @@ re-tap. The full method, verb by verb and case by case, is
    is a `formSheet` with detents; immersive content is a `fullScreenModal`
    with an explicit Close; something that must sit on top of a visible
    screen is a `transparentModal` overlay; destructive confirms are action
-   sheets; item actions are context menus. A sheet that grows a second step
-   was a modal all along. If a link could open it, it is a route.
-3. **One-way doors remove themselves from history.** Sign-in / sign-up,
-   onboarding completion, a successful purchase, a finished session, an
-   expired target: `Stack.Protected` guards and `replace` so back can never
-   re-enter the old state — Android back from home exits the app, never
-   shows Login; leaving a thank-you screen never re-opens the paywall.
+   sheets; item actions are context menus; tasks the OS already owns —
+   share, open a web page, pick a photo, compose mail, rate the app — are
+   system controllers, never routes. A sheet that grows a second step was a
+   modal all along. If a link could open it, it is a route.
+3. **One-way doors remove themselves from history.** Sign-in / sign-up on
+   a wall app, onboarding completion (Skip included), a purchase, a
+   finished session, an expired target: `Stack.Protected` guards and
+   `replace` so back can never re-enter the old state — Android back from
+   home exits the app, never shows Login; a paid paywall never re-opens.
+   But keep the user's *place*: sign-in demanded by one action (save,
+   follow, buy) is a modal over the screen that closes and completes the
+   action there — never a `replace('/(tabs)')` — and a paywall opened from a
+   feature dismisses back onto the feature, unlocked, not to a tab root.
 4. **Back is blocked in exactly two cases** — an irreversible request in
    flight (seconds, with visible progress) and unsaved work in a modal
-   (ask first) — both through `usePreventRemove`, never a bare
-   `BackHandler`, never to keep someone in a funnel. Everywhere else the
-   iOS edge swipe and Android hardware back work, always.
-5. **Tabs are peers.** No slide, each tab keeps its stack, re-tapping the
-   active tab pops to root (and, at the root, scrolls to top); full-attention screens
+   (ask first) — both through `usePreventRemove`, never to keep someone in
+   a funnel. One more case *consumes* back without blocking it: transient
+   in-screen state — selection/edit mode, an expanded search field, an
+   open in-screen sheet — clears on the first back and the next back
+   leaves the screen (`BackHandler` in `useFocusEffect`, returning `true`
+   only while that state is up; `usePreventRemove` when iOS should hold
+   too). A `BackHandler` that returns `true` to keep someone on a screen
+   is a defect. Everywhere else the iOS edge swipe and Android hardware
+   back work, always.
+5. **Bottom tabs are peers.** No slide in the tab bar (a Material-styled
+   app may cross-fade; swipe-paged top tabs inside a screen are a pager,
+   not this), each tab keeps its stack, re-tapping the active tab pops to
+   root (and, at the root, scrolls to top); full-attention screens
    (composer, player, checkout) live in the root stack *above* the tabs so
    the tab bar gets out of the way.
 6. **Deep links land with a stack underneath** (`initialRouteName`,
-   `withAnchor`) so back has somewhere to go; cold start lands by state.
+   `withAnchor`) so back has somewhere to go; cold start lands by state; a
+   link or notification tapped while signed out is stashed and replayed
+   after sign-in; tapped while warm, the target lands on top and back
+   returns to where the user was.
 7. **Study the grammar, not just the pixels.** When you walk a winning flow
    on Appllama, note what each step *is* — push, modal, sheet — and copy
    that consistency.
@@ -191,9 +208,11 @@ physics of *feel* in [references/fluid-interfaces.md](references/fluid-interface
   switch, keyboard, scroll, back) gets nothing beyond the platform default;
   tens a day gets near-imperceptible (<150 ms); occasional (sheets, modals,
   toasts) gets standard motion; the delight budget is spent only on rare,
-  first-time moments. **Tabs never slide. Screen transitions stay at the
-  platform default.** Passing this gate with zero lines of code is a
-  success.
+  first-time moments. **The tab bar never slides (swipe-paged top tabs are
+  a pager the finger drives — a different thing). Screen transitions stay
+  at the platform default** (a native-stack `animation` value like `fade`
+  for an overlay *is* the platform; a JS-rebuilt transition or a changed
+  duration is not). Passing this gate with zero lines of code is a success.
 - **Name the purpose in one word** — feedback, spatial consistency, state
   indication, preventing a jarring change, explanation, delight — or don't
   build it. Data the user is reading never moves for style.
@@ -210,19 +229,24 @@ physics of *feel* in [references/fluid-interfaces.md](references/fluid-interface
   `SNAP { 400, 0.8 }`, `SHEET { 300, 0.8 }`; bounce only after momentum.
 - **Everything else is timing, under 300 ms, strong ease-out** —
   `Easing.bezier(0.23, 1, 0.32, 1)` to enter/exit, `(0.77, 0, 0.175, 1)` to
-  move on screen; never ease-in on UI. Press 100–150 ms at scale 0.97,
-  feedback on press-*in*. Exits faster than entrances, along the same path.
+  move on screen; never ease-in on an entrance or an on-screen change (a
+  Material-styled app's exits may use M3's accelerate curve — motion.md §5).
+  Press feedback 100–150 ms, on press-*in*, matched to the element class —
+  scale 0.97 for buttons/cards/tiles, a background highlight (never scale)
+  for list rows and cells, opacity for bar buttons and plain-text actions.
+  Exits faster than entrances, along the same path.
 - **Off the JS thread.** No `setState` in a gesture or scroll handler, no
   `scheduleOnRN`/`runOnJS` per frame, no shared-value reads in render, no
   `PanResponder`, no `entering` on recycled list rows, no animated `height`
   to collapse a header, no JS-rebuilt screen transition.
 - **Haptics** follow fidelity law 10 — same frame, one per action, never
   alone.
-- **Respect Reduce Motion** — fewer and gentler, not zero: spatial motion
-  collapses to cross-fades, screen transitions to `fade`, feedback survives;
+- **Respect Reduce Motion** — fewer and gentler, not zero: your custom
+  spatial motion collapses to cross-fades, native transitions (stack, tabs,
+  sheets) stay the system's — never forced to `fade` — feedback survives;
   and no animation targets a height measured at default text size.
-- The bar: 60 fps on a mid-tier device, zero dropped frames through the hero
-  flow — measured on a release build, not vibed in Expo Go
+- The bar: 60 fps, zero dropped frames through the hero flow — measured on
+  a release build on the slowest device you support, not vibed in Expo Go
   ([references/performance.md](references/performance.md)). Ready-to-build
   recipes live in [references/motion-recipes.md](references/motion-recipes.md);
   reviewing and auditing motion — and deciding what *not* to animate — in
@@ -248,7 +272,7 @@ Screens that feel great are screens whose state is boring:
 
 - Skeletons only for content whose shape you know; otherwise progressive
   reveal. Never a full-screen spinner for a partial update.
-- FlashList for every list; give stable keys.
+- FlashList for every list that can grow; give stable keys.
 - Preload the next screen on press-in (`router.prefetch` / `<Link prefetch>`
   plus its data), not on navigation-complete.
 - Images: right-size sources, `expo-image` with `recyclingKey` in lists,
@@ -322,8 +346,10 @@ zero UX glitches. One glitchy frame means the flow is not done.
 
 ## Definition of done, per screen
 
-- [ ] Studied 10+ real reference screens for this screen type (via Appllama
-      MCP when available) and can name the pattern you adopted
+- [ ] Studied 20–30 real reference screens for this screen type (the Prime
+      Directive's bar; 10+ only when the Appllama MCP is unavailable or the
+      library is thin for the category — say so) and can name the pattern
+      you adopted
 - [ ] Navigation answered: what this screen *is* (push / modal / sheet /
       overlay / replace), what back does from it on iOS and Android, and —
       if it sits behind a one-way door — that back cannot re-enter the old
@@ -332,13 +358,13 @@ zero UX glitches. One glitchy frame means the flow is not done.
 - [ ] Safe areas / Dynamic Island / home indicator verified
 - [ ] Long-content, empty, loading, and error states designed — not defaulted
 - [ ] Motion passed the gate (frequency tier + named purpose for every
-      animation; nothing slides between tabs; screen transitions native),
+      animation; nothing slides between bottom tabs; screen transitions native),
       uses the app's one spring/easing vocabulary, runs off the JS thread,
       and every gesture hands its velocity to a spring
 - [ ] Motion: the full flow screen-recorded and scrubbed — entrances,
       presses, transitions, modals, keyboard — native feel, zero glitch or
       wrong-color frames; Reduce Motion respected; 60 fps measured on a
-      release build on the target device profile
+      release build on the slowest supported device
 - [ ] Dynamic Type XL doesn't break layout; text is selectable where useful
 - [ ] All tap targets ≥ 44pt; contrast passes in both themes
 - [ ] Assets: single style family, crisp at @3x, no compositing halos

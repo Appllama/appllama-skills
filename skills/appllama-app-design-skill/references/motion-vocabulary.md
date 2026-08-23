@@ -53,7 +53,7 @@ this list — if a term isn't here, explain the idea with the words that are.
 - **Scroll-edge effect** — the fade/blur where content meets floating chrome.
 
 ## Feedback and interaction
-- **Press feedback** — a subtle scale-down on press-in (0.97), release on press-out.
+- **Press feedback** — the class-appropriate response on press-in, released on press-out: a subtle scale-down (0.97) on buttons, cards and tiles; a background highlight on list rows and cells; an opacity dip on bar buttons and plain-text actions.
 - **Hold to confirm** — a fill that progresses while the finger holds; linear, slow in, snappy release.
 - **Drag** — moving by grabbing; momentum on release.
 - **Drag to reorder** — items shift to make room.
@@ -67,7 +67,7 @@ this list — if a term isn't here, explain the idea with the words that are.
 
 ## Easing
 - **Ease-out** — fast start, slow end; the default for UI and anything responding to the user.
-- **Ease-in** — slow start; avoided on UI.
+- **Ease-in** — slow start; never on an entrance or an on-screen change; an exit may accelerate out only where the platform does (M3).
 - **Ease-in-out** — for things already on screen moving from A to B.
 - **Linear** — constant speed; progress, marquee, hold fills only.
 - **Cubic-bezier** — a custom curve (the three house curves in motion.md).

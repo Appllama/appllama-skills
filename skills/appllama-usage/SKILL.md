@@ -9,10 +9,10 @@ metadata:
 
 # Appllama Usage Skill
 
-Appllama is a library of top-grossing mobile apps — their real screens,
-flows, and UI patterns, with revenue and download context. The MCP makes it
-an agent's research floor: **not just a research tool, a builder's tool.**
-You study what already wins, then you build something better.
+Appllama is the design library of top-grossing mobile apps — their real
+screens, flows, and UI patterns, with revenue and download context. The MCP
+puts that library in an agent's hands: **not just a research tool, a builder's
+tool.** You study what already wins, then you build something better.
 
 Pair this skill with **appllama-app-design-skill** for every design/implementation
 step — this skill tells you what to study; that one tells you how to build.

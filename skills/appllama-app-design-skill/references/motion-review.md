@@ -20,12 +20,17 @@ Every animation is measured against these. A violation is a finding.
 2. **Frequency-appropriate.** 100+/day actions (tab switch, keyboard, scroll,
    back) get nothing beyond the platform default; tens/day get
    near-imperceptible; occasional gets standard; rare gets the delight
-   budget. A sliding tab bar is a block.
-3. **Responsive easing.** Entering/exiting uses a strong ease-out; anything
-   `ease-in` on UI is a block; built-in curves on a deliberate animation are
-   a finding.
-4. **Sub-300 ms UI.** Screen transitions stay at the platform default; every
-   other UI animation under 300 ms or it carries a stated reason.
+   budget. A sliding bottom tab bar is a block; a swipe-paged top-tab pager
+   is not a finding.
+3. **Responsive easing.** Entering uses a strong ease-out; `ease-in` on an
+   entrance or an on-screen state change is a block; an exit may accelerate
+   out only when it matches the platform (M3's emphasized-accelerate in a
+   Material-styled app — the iOS default stays ease-out); built-in curves on
+   a deliberate animation are a finding.
+4. **Sub-300 ms timing.** Screen transitions stay at the platform default;
+   every *timing-based* UI animation is under 300 ms or carries a stated
+   reason. Springs are judged against the vocabulary instead (SETTLE/SNAP
+   400, SHEET 300 — perceptual durations), never against the 300 ms cap.
 5. **Origin and physicality.** Menus/popovers grow from their trigger;
    entrances start at `scale(0.9–0.97)` + opacity, never `scale(0)`;
    exits are faster than entrances and leave the way they came.
@@ -38,9 +43,11 @@ Every animation is measured against these. A violation is a finding.
    exempt), no `entering` on recycled rows, no JS-rebuilt screen transition.
 8. **Accessible.** Reduce Motion honored (gentler, not zero); no height
    measured at default type size; 44 pt targets.
-9. **Asymmetric where the user is deciding.** Deliberate phases (press,
-   hold-to-confirm, destructive) can be slow; the system's response snaps.
-   Symmetric timing on a press-and-release is a finding.
+9. **Asymmetric where the user is deciding.** Deliberate phases
+   (hold-to-confirm, a destructive commit, a drag up to its threshold) can
+   be slow; the system's response — the release, the snap home — is fast.
+   A plain press is exempt: one 100–150 ms transition in and out
+   (motion.md §7) is the spec, not a finding.
 10. **Cohesive.** Motion matches the product's personality and the rest of
     the app: one spring vocabulary, one easing set, one haptic grammar; a
     playful app may bounce, a tool stays crisp; a haptic that lags its
@@ -51,17 +58,17 @@ Every animation is measured against these. A violation is a finding.
 - `PanResponder`; core `Animated` on anything a finger touches
 - `setState` in a gesture or scroll handler; `runOnJS` / `scheduleOnRN` per frame
 - reading or writing a shared value during render; `.value` where `.get()/.set()` is the convention
-- animated `height` / `width` / `margin` / `flex` / `top` / `left`; animated `BlurView` intensity or `elevation`
+- animated `height` / `width` / `margin` / `flex` / `top` / `left`; animated `BlurView` intensity; an animated shadow (`boxShadow`, or legacy `elevation` / `shadow*`)
 - `entering` / `exiting` on a virtualized list row
 - a screen transition, sheet, tab bar or context menu rebuilt in JS
-- tabs that slide; a keyboard-driven layout animated with a duration
-- `Easing.in(...)` on a UI element; `scale(0)` entrances; pure-fade entrances with no transform on a trigger-anchored element
-- a UI duration over 300 ms with no stated reason; an overridden screen-transition duration
+- a bottom tab bar that slides; a keyboard-driven layout animated with a duration
+- `Easing.in(...)` on an entrance or an on-screen change (a platform-matched exit in a Material-styled app is by-design); `scale(0)` entrances; pure-fade entrances with no transform on a trigger-anchored element
+- a *timing* duration over 300 ms with no stated reason; a spring `duration` that isn't the vocabulary's (SETTLE/SNAP 400, SHEET 300); an overridden screen-transition duration
 - a distance-only dismissal threshold; a hard stop at a drag boundary; a dismissal that doesn't hand velocity to its spring
 - haptics per frame, on scroll, on an entrance the user didn't cause, or as the only feedback
 - motion with no Reduce Motion branch; a hard-coded height that breaks at 200% text
 - feel judged in Expo Go or the simulator rather than a release build on a slow device
-- the slop counts from SKILL.md failing inside motion: a second spring vocabulary, a third easing curve, a one-off haptic
+- motion's own slop counts (the analogue of SKILL.md's pre-flight, applied to motion): a spring config that isn't `SETTLE` / `SNAP` / `SHEET` (`velocity` and `overshootClamping` are per-use modifiers, not new configs — a `duration` or `dampingRatio` override is), an easing that isn't `EASE_OUT` / `EASE_IN_OUT` / `EASE_SHEET` (or their CSS twins) / `Easing.linear`, a haptic call outside the motion.md §8 table — count, don't judge
 
 ## The remedial order
 
@@ -95,7 +102,7 @@ Two parts, in this order.
 regressions → missed simplifications (delete it) → performance (thread,
 layout props) → interruptibility & timing → origin, physicality & cohesion →
 accessibility. Close with **Block** (any feel-breaking regression, any
-animation on a 100+/day action, `scale(0)`/`ease-in` on UI, any per-frame JS
+animation on a 100+/day action, `scale(0)` or `ease-in` on an entrance or state change, any per-frame JS
 hop with an easy fix) or **Approve**. Cite `file:line`; pull exact values from
 motion.md rather than approximating. When feel genuinely can't be judged
 from code (a spring's bounce, a crossfade), say so and prescribe the
@@ -125,7 +132,7 @@ to any agent.
    mis-attributed findings. Never present a finding you haven't confirmed.
 4. **Prioritize** in one table ordered by leverage (impact ÷ effort) with
    severity — **HIGH** feel-breaking (thread violations, wrong easing on UI,
-   sliding tabs, `scale(0)`), **MEDIUM** noticeably off (missing velocity
+   a sliding tab bar, `scale(0)`), **MEDIUM** noticeably off (missing velocity
    hand-off, non-interruptible sheet, no Reduce Motion), **LOW** polish
    (stagger, threshold haptics, token consolidation). List 2–4 missed
    opportunities separately. Then stop and let the user choose (or, when
@@ -154,9 +161,11 @@ being read or acted on never moves for style).
 
 Where to hunt — each is a known class of genuine opportunity:
 
-- **Feedback gaps** — pressables with no press state (→ `scale 0.97`, 100–150
-  ms); destructive taps that should be hold-to-confirm (slow linear fill on
-  press, snappy release).
+- **Feedback gaps** — pressables with no press state (→ class-appropriate
+  feedback per motion.md §7: `scale 0.97` on buttons/cards/tiles, background
+  highlight on rows/cells, opacity on bar buttons/plain-text, 100–150 ms —
+  and a *scaling list row* is itself a finding); destructive taps that should
+  be hold-to-confirm (slow linear fill on press, snappy release).
 - **Teleporting state** — content that swaps, appears or vanishes instantly
   (conditional renders, skeleton → content, expanding sections) → `entering`
   from `scale 0.95–0.97` + opacity, `EASE_OUT`; `layout` transitions for

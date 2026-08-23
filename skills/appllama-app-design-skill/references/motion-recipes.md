@@ -56,9 +56,14 @@ export function rubberband(overshoot: number, dimension: number, constant = 0.55
 
 ## Press feedback
 
-Every pressable. It passes the frequency gate only because it is
-near-imperceptible — 120 ms and 3% is the ceiling for something touched this
-often. No gesture, no shared value: a CSS transition is the whole thing.
+Every button-class pressable — buttons, cards, chips, tiles. (List rows and
+cells get a background highlight, bar buttons and plain-text actions an
+opacity dip — see motion.md §7; the same CSS-transition pattern applies,
+transitioning `backgroundColor` or `opacity` instead of `transform`.) It
+passes the frequency gate only because it is near-imperceptible — 150 ms
+and 3% is the ceiling for something touched this often (the laws say
+100–150 ms; this recipe uses 120). No gesture, no shared value: a CSS
+transition is the whole thing.
 
 ```tsx
 import { Pressable } from 'react-native';
@@ -89,11 +94,20 @@ const styles = css.create({
 `Pressable` already tolerates a 20–30 pt finger drift before cancelling
 (`pressRetentionOffset`); raise it for big, sloppy targets, never lower it.
 
-## Bottom sheet you can drag to dismiss (in-screen)
+## Drag-to-dismiss sheet (in-screen, single position)
 
-First check [navigation.md](navigation.md): if the sheet is its own
-destination, `presentation: 'formSheet'` gives you the real system sheet.
-Build this only when the sheet belongs to the screen's own state.
+First check [navigation.md](navigation.md): a sheet that is its own
+destination is a `presentation: 'formSheet'` route — the real system sheet,
+free. A sheet that belongs to the screen's own state and stays on screen — a
+map's place card, a player's queue, a detented panel with scroll content — is
+`@gorhom/bottom-sheet`, the library pick in
+[native-controls.md](native-controls.md); its `enablePanDownToClose`,
+backdrop and over-drag resistance already do what follows. Build the gesture
+yourself only for a single-position surface that is neither: the card inside
+a `transparentModal` overlay the user can flick away (a "Saved to board"
+card, a lightbox caption), or a signature interaction the library's snap
+model can't express — and hold whichever tool you use to the four details
+below.
 
 ```tsx
 const translateY = useSharedValue(0);
@@ -109,7 +123,7 @@ const pan = useMemo(() => Gesture.Pan()
   .onEnd((e) => {
     const projected = translateY.get() + project(e.velocityY);
     if (projected > HEIGHT * 0.4) {
-      translateY.set(withSpring(HEIGHT, { ...SETTLE, duration: 300, velocity: e.velocityY, overshootClamping: true },
+      translateY.set(withSpring(HEIGHT, { ...SHEET, velocity: e.velocityY, overshootClamping: true },
         (finished) => { if (finished) scheduleOnRN(onClose); }));
     } else {
       translateY.set(withSpring(0, { ...SHEET, velocity: e.velocityY }));
@@ -125,8 +139,9 @@ const backdropStyle = useAnimatedStyle(() => ({
 
 The four details that separate this from a bad drag: `onStart` captures the
 current value (grabbing a sheet mid-animation must not teleport it);
-**velocity decides, not distance** (a flick from a few pixels down
-dismisses); the **velocity is handed to the spring** (no seam between finger
+**the projected position decides, not the release point**
+(`translateY + project(velocityY)` against the threshold — a flick from a few
+pixels down dismisses, and so does a slow drag past 40%); the **velocity is handed to the spring** (no seam between finger
 and animation — the single detail that most separates fluid from fine);
 `overshootClamping` on dismissal so the sheet never springs past the screen
 edge and flashes a gap. The backdrop derives from the same value, so it is
@@ -152,7 +167,7 @@ const pan = useMemo(() => Gesture.Pan()
     if (projected < -SWIPE_THRESHOLD) {
       x.set(withTiming(-WIDTH, { duration: 200, easing: EASE_OUT }, (f) => { if (f) scheduleOnRN(onDelete, id); }));
     } else {
-      x.set(withSpring(0, { ...SETTLE, duration: 300, velocity: e.velocityX }));
+      x.set(withSpring(0, { ...SNAP, velocity: e.velocityX }));
     }
   }), [onDelete, id]);
 ```
@@ -187,7 +202,11 @@ Never animate the header's `height` — that is a layout pass on everything
 below it on every scroll frame, competing with the scroll itself. (And for
 the standard iOS large title, `headerLargeTitleEnabled` — no worklet at all.)
 
-## List entrances
+## List entrances (fixed, non-virtualized groups)
+
+For a small fixed group the user is waiting on — a settings section, a grid
+of ≤ 8 cards, an onboarding step's options — rendered as plain views, never
+as rows of a FlashList / FlatList (see below).
 
 ```tsx
 function Row({ item, index }) {
@@ -245,6 +264,12 @@ them). `EASE_IN_OUT` because it moves across the screen rather than entering.
 
 ## Toast
 
+First check [native-controls.md](native-controls.md): its toast pick
+(`sonner-native`) is the default and ships its own motion — a custom
+absolute `<View>` toast is on that file's never list. Build this only when
+the project already owns a custom toast host; these are then its entrance
+and exit values:
+
 ```tsx
 const TOAST_IN  = FadeInDown.duration(300).easing(EASE_OUT);    // module scope
 const TOAST_OUT = FadeOutDown.duration(250).easing(EASE_OUT);
@@ -255,9 +280,7 @@ const TOAST_OUT = FadeOutDown.duration(250).easing(EASE_OUT);
 
 Uninvited UI is quicker and quieter than motion the user asked for; it
 leaves the way it came, ~20% faster; and it sits above the home indicator
-(safe-area insets, always). Before building one: a native toast/alert
-library is usually the right answer — see the library picks in
-[native-controls.md](native-controls.md).
+(safe-area insets, always).
 
 ## Fire once at a threshold
 
@@ -286,15 +309,23 @@ value reaches X".
 
 Configured on the native stack, never rebuilt in JS — the native transition
 keeps the interactive back gesture and matches every other app on the
-device:
+device, Reduce Motion included (the system honours Reduce Motion / Prefer
+Cross-Fade Transitions / Remove animations itself; a forced `fade` would
+diverge from every other app — the reduced branch belongs to your custom
+motion, motion.md §9):
 
 ```tsx
-<Stack screenOptions={{ animation: reduced ? 'fade' : 'default' }}>
-  <Stack.Screen name="settings" options={{ animation: 'slide_from_right', animationMatchesGesture: true }} />
+<Stack>
   <Stack.Screen name="compose"  options={{ presentation: 'modal' }} />
   <Stack.Screen name="filters"  options={{ presentation: 'formSheet', sheetAllowedDetents: 'fitToContents', sheetGrabberVisible: true }} />
 </Stack>
 ```
+
+`animation` is set only for a reason the platform recognises — `fade` for a
+`transparentModal` overlay, `none` where nothing should move (tabs) — never
+to restyle a push (`slide_from_right` is a no-op on iOS and an override of
+the system transition on Android), never a JS-rebuilt transition, never a
+changed duration.
 
 Which presentation a screen gets — and when back must not exist — is
 [navigation.md](navigation.md).

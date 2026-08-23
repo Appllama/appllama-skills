@@ -27,8 +27,16 @@ Mobile changes three things about animation, and everything here follows:
 | Occasional — sheets, modals, toasts, onboarding steps, filters | Standard animation |
 | Rare / first time — success states, empty-state art, celebrations, the first run | The delight budget lives here, and only here |
 
-**Tabs never slide.** Tabs are peers, not a hierarchy; a slide claims a depth
-that isn't there and the user pays for it dozens of times a session.
+**The tab bar never slides.** Bottom tabs (`NativeTabs` / `Tabs`) are peers,
+not a hierarchy; a horizontal slide claims a depth that isn't there and the
+user pays for it dozens of times a session — `animation: 'none'` (a
+Material-styled app on JS `Tabs` may take the platform's cross-fade,
+`animation: 'fade'`; never `shift`, never a push). Swipe-paged **top tabs**
+inside a screen (`react-native-pager-view`, material-top-tabs, M3 tabs) are
+a different thing: the content is glued to the finger and the indicator
+tracks the page offset on the UI thread — that is the pager's own scroll,
+not an animation you added; it is the Material tabs spec and common in top
+iOS apps. Don't disable the swipe to satisfy this rule.
 **Screen transitions stay at the platform default** — never rebuilt in JS.
 If the request fails this gate, say so and don't write it.
 
@@ -81,9 +89,10 @@ New Architecture), `react-native-gesture-handler`, `expo-haptics`,
   real appears from nothing.
 - **`transform` order matters** — `[{ translateY }, { scale }]`; reversed, the
   translate gets scaled too.
-- **Android shadows are `elevation`**, and animating it re-renders the shadow
-  each frame — fade a pre-shadowed layer instead. **Never animate `BlurView`
-  intensity** — crossfade a static blur.
+- **Shadows re-render every frame when animated** — `boxShadow` (the prop
+  SKILL.md's fidelity laws use, and Reanimated will transition it) or legacy
+  `elevation` / `shadow*` in older code. Fade a pre-shadowed layer instead.
+  **Never animate `BlurView` intensity** — crossfade a static blur.
 - **Percentages in `translate`** are relative to the element's own size:
   `translateY('100%')` hides a sheet whatever its height.
 
@@ -102,7 +111,7 @@ export const SNAP   = { duration: 400, dampingRatio: 0.8 };          // repositi
 export const SHEET  = { duration: 300, dampingRatio: 0.8 };          // sheets, drawers (+ velocity)
 // add overshootClamping: true when the element must not pass a hard edge
 // `duration` here is PERCEPTUAL — Reanimated lets the spring micro-settle ~1.5× longer.
-// The sub-300 ms rule below is about what the eye reads as finished, not the last sub-pixel.
+// These perceptual values ARE the spring budget; the sub-300 ms rule below is for timing animations.
 ```
 
 Bounce **only when the gesture carried momentum** — a flicked card may
@@ -129,8 +138,15 @@ export const CSS_EASE_IN_OUT = cubicBezier(0.77, 0, 0.175, 1);
 | Constant motion (progress, marquee) | `Easing.linear` |
 | Default | `EASE_OUT` |
 
-**Never `ease-in` on UI.** It starts slow, delaying the exact moment the user
-is watching.
+**Never `ease-in` on an entrance or an on-screen state change** — it starts
+slow, delaying the exact moment the user is watching. **An exit may
+accelerate out**, but only when that matches the platform: in a
+Material-styled Android app it is the spec (M3 emphasized-accelerate
+`cubic-bezier(0.3, 0, 0.8, 0.15)`, short — ~200 ms); the iOS house default
+stays `EASE_OUT` at 0.7–0.8× the entrance. Either way the exit is faster
+than, and along the path of, the entrance, and the app still keeps one
+easing set — a Material-styled app uses M3's tokens as that set, it does not
+add an ease-in to the house curves.
 
 | Element | Duration |
 |---|---|
@@ -140,8 +156,9 @@ is watching.
 | Toast | ≤ 300 ms in, ~20% faster out |
 | Screen transition | the platform default (iOS push is 350 ms) — don't override |
 
-UI animation stays **under 300 ms**. Match the platform for navigation, beat
-it everywhere else. **Exits are faster than entrances** (~0.7–0.8×) and an
+Timing-based UI animation stays **under 300 ms**; springs are governed by
+the vocabulary above (perceptual `duration` — SETTLE/SNAP 400, SHEET 300),
+not by this cap. Match the platform for navigation, beat it everywhere else. **Exits are faster than entrances** (~0.7–0.8×) and an
 element **leaves the way it arrived** — in from the bottom, out through the
 bottom.
 
@@ -175,15 +192,23 @@ This is where most React Native motion dies.
 
 - **Feedback on press-in, commit on press-out.** Showing nothing until the
   tap completes feels dead — this is the latency users actually perceive.
-- **`scale: 0.97` in 100–150 ms** on any pressable (`Pressable` + a CSS
-  transition). Scale takes label and icon with it, which is what reads as
-  physical. Plain-text buttons: opacity 0.4 instead.
+- **Press feedback matches the element class**, always on press-*in*, in
+  100–150 ms. **Buttons, cards, chips, tiles**: `scale: 0.97` (filled
+  buttons may add a slight darken) — scale takes label and icon with it,
+  which is what reads as physical. **List rows and cells**: a background
+  highlight (the platform selected-cell grey — a semantic fill such as
+  `Color.ios.systemGray4` via the `Pressable` style function; Android ripple
+  in a Material-styled app) — never scale: UIKit cells highlight and fade,
+  they do not shrink. **Bar buttons and plain-text actions**: opacity
+  0.3–0.4. **Native controls** (Switch, Slider, segmented, pickers, menus):
+  their own — don't wrap them in a scale.
 - **44×44 pt minimum target** (48 dp Android). Smaller visual → `hitSlop`,
   never a bigger visual. `Pressable`'s `pressRetentionOffset` already lets a
   finger drift 20–30 pt before cancelling — only ever raise it, never set it
   lower.
 - **Android ripple only in a Material-styled app.** In a custom design, the
-  same scale on both platforms is more coherent than a ripple on one.
+  same class-appropriate feedback on both platforms (scale for buttons,
+  highlight for rows) is more coherent than a ripple on one.
 
 ## 8. Haptics
 
@@ -209,9 +234,11 @@ many people and silent on most Android hardware). From a worklet:
 ```ts
 import { useReducedMotion, ReduceMotion, withSpring } from 'react-native-reanimated';
 const reduced = useReducedMotion();
-// per animation:
+// per animation — springs and timings:
 withSpring(0, { ...SHEET, reduceMotion: ReduceMotion.System });
-// per screen transition: animation: reduced ? 'fade' : 'default'
+// your custom transitions (transparentModal overlays, in-screen sheets, parallax, staggers):
+//   reduced ? crossfade (opacity only) : the full motion
+// native stack / NativeTabs / formSheet transitions: leave `animation` alone — never `reduced ? 'fade' : 'default'`
 ```
 
 Reduced motion means **fewer and gentler, not zero**: keep the opacity and
@@ -219,6 +246,18 @@ color changes that explain a state change; drop translation, scale, parallax,
 overshoot. **Text scales** — `allowFontScaling` is on by default, so a
 height measured at default type is wrong at 200%. Never animate to a
 hard-coded height: measure with `onLayout` or animate a transform.
+
+Screen transitions on the native stack, `NativeTabs` and `formSheet` are
+left to the system — UIKit and Android already honour Reduce Motion / Remove
+animations, and iOS only crossfades pushes when the user *also* chose Prefer
+Cross-Fade Transitions (read it with
+`AccessibilityInfo.prefersCrossFadeTransitions()` if you mirror it in custom
+chrome). Forcing `animation: 'fade'` whenever `useReducedMotion()` is true
+gives a Reduce-Motion user whose Mail and Settings still slide an app whose
+pushes dissolve — and swaps UIKit's animator for a custom one. The reduced
+branch is for *your* motion: `reduceMotion: ReduceMotion.System` on springs
+and timings; custom transitions (`transparentModal` overlays, in-screen
+sheets, parallax, staggers) → crossfade or nothing.
 
 ## Entrances, exits, layout
 
@@ -299,13 +338,14 @@ elements are still niche; fake the continuity.
 | Reading / writing a shared value during render | `.get()` / `.set()` in worklets, handlers, effects |
 | Core `Animated` for anything a finger touches | Reanimated |
 | Animating `height` / `width` / `margin` / `flex` / `top` | `transform` + `opacity` (absolute, childless elements exempt) |
-| Animating `BlurView` intensity or Android `elevation` | crossfade a static layer |
+| Animating `BlurView` intensity or a shadow (`boxShadow`, legacy `elevation` / `shadow*`) | crossfade a static layer |
 | `entering` on a virtualized list row | animate the container, or `itemLayoutAnimation` |
 | A screen transition rebuilt in JS | native stack `animation` |
-| Sliding between tabs | `animation: 'none'` |
-| `Easing.in(...)` on a UI element | `EASE_OUT` |
+| `animation: reduced ? 'fade' : 'default'` on the native stack | leave `animation` alone — the system honours Reduce Motion / Prefer Cross-Fade Transitions itself; the reduced branch is for your custom motion |
+| Sliding the tab bar's content between bottom tabs (`shift`, or a JS-built slide) | `animation: 'none'` (`'fade'` in a Material-styled app); a swipe-paged top-tab pager is not this — leave the swipe |
+| `Easing.in(...)` on an entrance or an on-screen change | `EASE_OUT` (a platform-matched exit in a Material-styled app may use M3's accelerate curve — see §5) |
 | `scale(0)` entrance | `scale(0.95)` + `opacity: 0` |
-| Distance-only dismissal threshold | velocity **or** distance — a flick is enough |
+| Distance-only dismissal threshold | the projected position (`current + project(v)`) against the threshold — a flick is enough |
 | Hard stop at a boundary | rubber-band resistance |
 | A haptic per frame, or as the only feedback | one per commit, always with a visual |
 | Exit slower than, or along a different path from, the entrance | faster, same path |

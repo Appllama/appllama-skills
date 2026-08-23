@@ -40,8 +40,8 @@ design language, then build screens that hold up next to them.
 
 | Skill | What it does |
 |---|---|
-| [`appllama-usage`](skills/appllama-usage/SKILL.md) | The research engine: how to use the [Appllama MCP](https://mcp.appllama.io/mcp) like a design director — the full tool map, and the playbooks for building an app from scratch, improving an existing screen, and flow & element research. |
-| [`appllama-app-design-skill`](skills/appllama-app-design-skill/SKILL.md) | The build bar: native-feeling Expo / React Native screens — Apple HIG fidelity, semantic colors, native controls, anti-slop discipline, navigation that behaves (push vs replace, modal vs sheet vs overlay, and the one-way doors where back must not exist), a strict motion bar (should it animate at all, exact springs and curves, gestures that carry velocity, haptics on the same frame, nothing on the JS thread), generated image assets, and a full-motion simulator-verified iteration loop (whole flows recorded and scrubbed at 60 fps, not screenshots). |
+| [`appllama-usage`](skills/appllama-usage/SKILL.md) | The research engine: how to use the [Appllama MCP](https://appllama.io/mcp) like a design director — the full tool map, and the playbooks for building an app from scratch, improving an existing screen, and flow & element research. |
+| [`appllama-app-design-skill`](skills/appllama-app-design-skill/SKILL.md) | The build bar: native-feeling Expo / React Native screens — Apple HIG fidelity, semantic colors, native controls, anti-slop discipline, navigation that behaves, a strict motion bar, and a full-motion simulator loop (whole flows recorded and scrubbed frame by frame, not screenshots). The reference library below has the detail. |
 
 They are designed as a pair: **usage** decides what to study, **design**
 decides how to build, and both insist the loop only ends in a simulator
@@ -114,7 +114,8 @@ cp -r appllama-skills/skills/* ~/.claude/skills/
 
 ## Connect the Appllama MCP
 
-The skills assume the Appllama MCP is connected:
+`appllama-usage` runs on the Appllama MCP; `appllama-app-design-skill` is
+sharper with it connected. The endpoint:
 
 ```
 https://mcp.appllama.io/mcp

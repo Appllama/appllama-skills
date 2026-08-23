@@ -59,15 +59,19 @@ re-verify for free.
 - [ ] Gesture motion judged on a device (the slowest you support), not only
       the simulator: velocity hand-off, haptic timing and rubber-banding
       cannot be read from a recording alone
-- [ ] Reduce Motion enabled → spatial animations become fades, screen
-      transitions become `fade`, feedback (opacity/color) survives
+- [ ] Reduce Motion enabled → custom spatial animations become crossfades;
+      native screen transitions are left to the system (on iOS they still
+      slide unless the user also chose Prefer Cross-Fade Transitions —
+      correct, not a defect); feedback (opacity/color) survives
 - [ ] Dynamic Type at XL: no animation targets a height measured at default
       type; keyboard-synced UI still clears the focused input
 
 **Interaction**
-- [ ] Every tappable ≥ 44pt; press feedback on press-*in* (scale 0.97,
-      100–150 ms); haptics where native controls would have them — same
-      frame as the visual, never alone
+- [ ] Every tappable ≥ 44pt; class-appropriate press feedback on press-*in*
+      (100–150 ms: scale 0.97 on buttons/cards/tiles, background highlight
+      on rows and cells — never a scaling row — opacity on bar buttons and
+      plain-text actions); haptics where native controls would have them —
+      same frame as the visual, never alone
 - [ ] Keyboard: appears with the right type, doesn't cover the focused input,
       dismisses sensibly
 - [ ] Gestures feel-checked by hand, not just watched: flick it, interrupt
@@ -83,16 +87,22 @@ re-verify for free.
       finished session — back cannot re-enter the old state; Android back
       from home exits the app, never shows Login
 - [ ] Every modal has Cancel/Done in its own header; swipe-down / back
-      dismiss it; unsaved work asks before discarding
+      dismiss it; unsaved work asks before discarding — and Discard closes
+      it in one tap (no second prompt)
 - [ ] Every sheet drags, tap-on-scrim dismisses, keyboard up → still
       dismissible; no sheet has grown a second step
-- [ ] Tabs: no slide, each tab keeps its stack, re-tap pops to root (and,
-      at the root, scrolls to top); full-attention screens (composer,
-      player, checkout) cover the tab bar
+- [ ] Tabs: the tab bar doesn't slide, each tab keeps its stack, re-tap
+      pops to root (and, at the root, scrolls to top); full-attention
+      screens (composer, player, checkout) cover the tab bar
 - [ ] Cold start from a deep link / notification lands with a real stack
-      underneath; kill → relaunch lands by state
+      underneath; tapped while signed out → sign in lands on the target,
+      not home; tapped while warm → target on top, back returns to the
+      previous place; kill → relaunch lands by state
 - [ ] Only the two sanctioned cases block back (request in flight, dirty
-      modal) — and both via `usePreventRemove`
+      modal) — both via `usePreventRemove`; transient in-screen state
+      (selection mode, expanded search, an open in-screen sheet) clears on
+      the first back and the next back leaves the screen — verified on
+      Android
 
 **State**
 - [ ] Background the app mid-flow → return: state intact

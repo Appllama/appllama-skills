@@ -91,8 +91,12 @@ snap to the target nearest that projection. A flick then throws the element
 instead of nudging it. The projection function (`project()` in
 motion-recipes.md) is the exponential-decay form with
 `decelerationRate ≈ 0.998` (0.99 for snappier) — not the physics-textbook
-`v²/2a`. Decide **commit vs. revert from the velocity sign** at release, not
-from the position.
+`v²/2a`. Decide **commit vs. revert from the projected resting position** —
+release position + `project(velocity)`, tested against the threshold — never
+from the release position alone. That is exactly `projected > HEIGHT * 0.4`
+in the motion-recipes.md sheet, and it is why a short fast flick commits, a
+slow drag past the threshold commits, and a release at rest short of it
+snaps home.
 
 ## 7. Spatial consistency — symmetric paths, anchored origins
 
@@ -202,7 +206,11 @@ Honor three independent signals:
 - **Reduce Motion** (`useReducedMotion()` / `AccessibilityInfo.isReduceMotionEnabled`)
   → short cross-fades and static transitions for slides, springs, parallax;
   drop overshoot; keep the opacity/color changes that aid comprehension;
-  screen transitions become `fade`.
+  custom transitions become crossfades; native stack / tab / sheet
+  transitions stay the system's (iOS crossfades pushes only when the user
+  also chose Prefer Cross-Fade Transitions —
+  `AccessibilityInfo.prefersCrossFadeTransitions()` if custom chrome mirrors
+  it).
 - **Reduce Transparency** (`AccessibilityInfo.isReduceTransparencyEnabled`,
   iOS) → translucent surfaces go frosty or solid: raise background opacity,
   drop the blur.
@@ -285,10 +293,10 @@ Tactical rules that serve them:
 | Gesture → spring | hand off release velocity | `withSpring(to, { ..., velocity })` |
 | Flick landing point | project momentum | `current + project(v)`, `d ≈ 0.998` |
 | Interrupt cleanly | start from the live value | capture in `onStart` |
-| Reverse vs commit | velocity **sign** at release | — |
+| Reverse vs commit | projected position vs. the threshold | `current + project(v)` > threshold |
 | 1:1 drag | translation added to the grab-time value | never the absolute finger position |
 | Boundary | rubber-band | `rubberband(over, dimension, 0.55)` |
 | Feedback | on press-in, continuous | never only at the end |
 | Translucent chrome | material + content scrolls under | `headerTransparent` + blur |
 | Tracking | size-specific | tighten display, body ~0 |
-| Reduced motion | cross-fade, not slide/spring | keep comprehension cues |
+| Reduced motion | custom motion: cross-fade, not slide/spring; native transitions: the system's | keep comprehension cues |

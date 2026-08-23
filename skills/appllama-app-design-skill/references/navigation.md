@@ -52,15 +52,16 @@ modal says *focus on this one task*.
 | The destination is… | Present as | Expo Router | It dismisses by |
 |---|---|---|---|
 | Deeper in the same hierarchy — list → detail → sub-detail, settings → section | **Push** (`presentation: 'card'`, the default) | `router.push`, `Stack.Screen` default | chevron, iOS edge swipe, Android back. Never disable the edge swipe here |
-| A self-contained task with its own steps that the user starts and finishes — compose a post, create an item, edit a profile, add a card | **Modal** with a stack inside | `presentation: 'modal'` on a route whose own `_layout` is a `Stack` | explicit **Cancel/Done** in its own header (always); iOS swipe-down from any step — it dismisses the *whole* modal, so guard it with `usePreventRemove` when dirty; Android back pops the inner stack, then closes the modal. Confirm before discarding unsaved work |
-| A short interruption — pick one value, set a filter, choose a share target, quick-add, see options for an item | **Form sheet** with detents | `presentation: 'formSheet'`, `sheetAllowedDetents: 'fitToContents'` or `[0.5, 1]`, `sheetGrabberVisible: true` | drag down, tap the scrim, Android back. Single screen only — a sheet that grows a stack was a modal all along |
+| A self-contained task with its own steps that the user starts and finishes — compose a post, create an item, edit a profile, add a card | **Modal** with a stack inside | `presentation: 'modal'` on a route whose own `_layout` is a `Stack` | explicit **Cancel/Done** in its own header (always); iOS swipe-down from any step — it dismisses the *whole* modal, so guard it with `usePreventRemove` on the modal's root screen when dirty; Android back pops the inner stack, then closes the modal. Confirm before discarding unsaved work |
+| A short interruption — pick one value, set a filter, pick a board or an in-app recipient to send to, quick-add, see options for an item | **Form sheet** with detents | `presentation: 'formSheet'`, `sheetAllowedDetents: 'fitToContents'` or `[0.5, 1]`, `sheetGrabberVisible: true` | drag down, tap the scrim, Android back. Single screen only — a sheet that grows a stack was a modal all along |
 | Immersive content — camera, video, full-screen photo viewer, markup, a game level | **Full-screen modal** | `presentation: 'fullScreenModal'` | an explicit Close/X (mandatory — there is no swipe-down on a full-screen modal), Android back |
 | Something that must sit *on top* while this screen stays visible — a custom confirm card, a lightbox, a coach-mark, "Saved to board" | **Overlay** | `presentation: 'transparentModal'`, `animation: 'fade'`, `contentStyle: { backgroundColor: 'transparent' }`; you draw the scrim. `containedTransparentModal` when it must stay inside a nested navigator (under the tab bar) | tap outside, its own button, Android back |
 | A destructive or consequential choice — delete, leave, discard, sign out | **Action sheet / native alert** | `@expo/react-native-action-sheet` (iOS action sheet, Android dialog) or `Alert` | Cancel. Never a routed screen |
 | Actions on one item — rename, share, move, delete | **Context menu** | `Link.Menu` (iOS only, SDK 54+, attached to a `Link.Preview`) or `@react-native-menu/menu` (native on both platforms) | tap outside |
+| A task the OS already owns — share outside the app, open a web page, pick a photo or file, compose mail, buy, rate the app, sign in with a web provider | **System controller** — not a route | `Share.share({ message, url })` (`expo-sharing` `shareAsync` for a local file); `expo-web-browser` `openBrowserAsync` (`openAuthSessionAsync` for OAuth); `expo-image-picker` / `expo-document-picker`; `expo-mail-composer`; the store's own purchase sheet via your IAP SDK; `expo-store-review` `requestReview()` — the OS decides whether it shows, so never from a button and never gated on | its own chrome (Done / Cancel / X) and its own back — never rebuilt, never a `formSheet` / `modal` / WebView route, never `Linking.openURL` to Safari for a page the user reads and returns from. An in-app share picker (friends, chats, boards — the Instagram / TikTok / Spotify pattern) is a form sheet only when the app has recipients of its own and the winners you studied do it; its "More…" still ends in the system share sheet |
 | Top-level destinations — 3–5 peers | **Tabs** | `NativeTabs` (`expo-router/unstable-native-tabs`) or `Tabs` | n/a — tabs are not a stack |
 | A gate — auth wall, onboarding, forced update, splash | **Replace / guard** | `Stack.Protected guard={…}`, `<Redirect>`, `router.replace` | there is no back — see one-way doors |
-| Sheet content that belongs to the *screen's own state* — a map's place card, a player's queue, a draggable panel that stays on screen | **In-screen sheet** (component, not a route) | `@gorhom/bottom-sheet` (see native-controls.md) | drag, scrim |
+| Sheet content that belongs to the *screen's own state* — a map's place card, a player's queue, a draggable panel that stays on screen | **In-screen sheet** (component, not a route) | `@gorhom/bottom-sheet` (see native-controls.md) | drag, scrim, Android back — wire it (see *Platform back*) |
 
 Rules that fall out of the table:
 
@@ -82,8 +83,9 @@ Rules that fall out of the table:
   push. Winners are consistent about this; copy the grammar.
 
 ```tsx
-// app/_layout.tsx — presentation lives in the navigator, once
-<Stack screenOptions={{ animation: reduceMotion ? 'fade' : 'default' }}>
+// app/_layout.tsx — presentation lives in the navigator, once.
+// No Reduce-Motion `animation` branch: the native stack honours the system setting itself (motion.md §9).
+<Stack>
   <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
   <Stack.Screen name="post/[id]" />                                   {/* push */}
   <Stack.Screen name="compose" options={{ presentation: 'modal', headerShown: false }} />
@@ -120,27 +122,39 @@ it is the opposite: they can never land somewhere that no longer makes sense.
 
 | Moment | What happens to the stack | How |
 |---|---|---|
-| **Sign in / sign up succeeds** | the auth screens vanish from history; the app's root is the new bottom; Android back from home exits the app — it never shows Login again | `Stack.Protected guard={isSignedIn}` around the app group and `guard={!isSignedIn}` around the auth group — flipping the guard removes the guarded screens. Land explicitly with `router.replace('/(tabs)')` |
+| **Sign-in demanded by one action** — save, follow, comment, buy, a Pro feature — **in an app you can browse signed out** | the user keeps their place: the auth screen is a parenthesis over the current screen, not a door. On success it vanishes and the action completes where it was tapped; on cancel they are exactly where they were | present the sign-in route as `presentation: 'modal'` (or `formSheet`) *over* the screen, carrying the intent (`/sign-in?returnTo=…&action=save&id=…`); on success flip `isSignedIn` — the `guard={!isSignedIn}` around the auth group removes the sheet (or `router.dismiss()` if that route is unguarded) — then run the pending action in place. Never `replace('/(tabs)')` here: it throws away the product page and the intent. Don't wrap the browsable group in `guard={isSignedIn}`; guard (or inline-prompt) only the screens that mean nothing signed out — a Profile tab says "Sign in to see your profile" inside the tab, not a redirect to a wall |
+| **"Skip" / "Continue without an account"** from onboarding or the welcome screen | onboarding is gone exactly as if they had signed in; relaunch lands in the app as a guest, never back in onboarding or on a wall | persist `onboardingCompletedAt` (and guest state) and `router.replace` to the same destination Continue reaches; sign-in stays available later through the row above |
+| **Sign in / sign up succeeds — wall apps** (the product is unusable signed out; auth is the first screen) | the auth screens vanish from history; the app's root is the new bottom; Android back from home exits the app — it never shows Login again | `Stack.Protected guard={isSignedIn}` around the app group and `guard={!isSignedIn}` around the auth group — flipping the guard removes the guarded screens. Land explicitly with `router.replace(pendingHref ?? '/(tabs)')` and clear `pendingHref`: Protected routes send a blocked deep link to the anchor and forget it, so if the link must be honoured, record the intended href yourself (the launch URL from `expo-linking`) and replay it once after sign-in |
 | **Sign out** | the app screens vanish; the auth root is the bottom | flip the guard; give the auth screen `animationTypeForReplace: 'pop'` so the swap reads as leaving, not arriving |
 | **Onboarding completed** | onboarding is gone; relaunch never shows it | `router.replace('/(tabs)')`, persist `onboardingCompletedAt`, and let the root `_layout` `<Redirect>` on state. Inside onboarding, back *between steps* stays enabled — edits are cheap and state carries forward |
-| **Purchase / payment / submit in flight** | for the seconds the request is irreversible, nothing leaves the screen | `usePreventRemove(inFlight, () => {})` + `gestureEnabled: false` + `headerBackVisible: false` + disabled buttons + visible progress. Seconds, not minutes: if it can take longer, let them leave and notify |
-| **Purchase succeeded** | the paywall / checkout cannot be re-entered by going back | `router.replace('/purchase/success')` from the paywall (never push); the success CTA does `router.dismissTo('/(tabs)')` |
-| **Session finished** — workout done, quiz submitted, order placed | the live session screen is gone; back from the summary goes *home*, not into the finished session | summary `replace`s the session route; "Done" → `dismissTo` the origin |
+| **Purchase / payment / submit in flight** | for the seconds *your* request is irreversible, nothing leaves the screen (the store's own purchase sheet is a system modal — you freeze only your post-purchase confirm, never the app behind StoreKit / Play Billing) | `usePreventRemove(inFlight, () => {})` + `gestureEnabled: false` + `headerBackVisible: false` + disabled buttons + visible progress. Seconds, not minutes: if it can take longer, let them leave and notify |
+| **Subscription bought from inside the app** — a paywall opened from a feature gate ("Export PDF" → Pro) or from Settings → Upgrade | the paywall leaves the stack; the user is exactly where they were, now unlocked — never thrown to a tab root | the paywall is a `modal` / `fullScreenModal` over the current screen and keeps its Close (the door is one-way only *after* the purchase). On success: confirm in place (a short in-modal "you're in" beat, `notificationAsync(Success)`), then `router.dismiss()` (`back()` if it was pushed from a Settings row) and the gated action proceeds where it was. No success route, no `dismissTo('/(tabs)')` |
+| **Subscription bought — or declined — at the end of onboarding** | onboarding and the paywall both leave history whether or not they paid; relaunch shows neither | the paywall is the last onboarding step: onboarding `replace`s into it, and Close and the purchase CTA both end in `router.replace('/(tabs)')` with `onboardingCompletedAt` persisted (the onboarding row above) |
+| **Checkout — a one-off order placed** | the checkout cannot be re-entered by going back | `router.replace('/checkout/success')` from the checkout (never push); the success CTA does `router.dismissTo(origin)` — the cart's parent or `/(tabs)` — and "View order" is a `push` from there |
+| **Session finished** — workout done, quiz submitted | the live session screen is gone; back from the summary goes *home*, not into the finished session | summary `replace`s the session route; "Done" → `dismissTo` the origin |
 | **Expired / deleted / unauthorized target** — from a link, a notification, a stale list | the user lands on the parent with an inline notice, never on an error screen they can "go back" from | `<Redirect href="/items" />` (or `replace`) + a toast/inline message |
 | **Cold start from a deep link / notification** | back has a real screen underneath | `export const unstable_settings = { initialRouteName: 'index' }` (`anchor: 'index'` is the equivalent key on newer SDKs and takes precedence) in the nested stack's `_layout`; `<Link withAnchor>` when linking into a stack from outside it. Never open a detail with nothing behind it |
-| **Splash / boot gate** | the gate is never in history | `<Redirect>` by session state in the root, never `router.push('/splash')` |
-| **Unsaved work in a modal** | back and Cancel *ask* before discarding; they never silently lose work | `usePreventRemove(isDirty, ({ data }) => confirm → navigation.dispatch(data.action))` — it also cancels the iOS swipe-down; `gestureEnabled: !isDirty` on that screen is belt-and-braces against swipe/prevent desync bugs |
+| **Link / notification tapped while signed out** | the auth door still closes behind them — and the intent survives it: after sign-in they land on the target (with its stack underneath), never on home | `Stack.Protected` bounces a guarded href to the anchor and never replays it, so capture it yourself: when the guard is down, stash the initial URL (`Linking.useLinkingURL()`) or the tapped notification's href (`useLastNotificationResponse()`) as `pendingHref`; once signed in, `router.replace(pendingHref ?? '/(tabs)')` and clear it. A stale target still obeys the expired-target row |
+| **Notification / link tapped while the app is warm** — on another screen, another tab | the user's place is kept; the target lands *on top* of it, once; back returns to where they were | in the *response* listener (`addNotificationResponseReceivedListener` / `useLastNotificationResponse` — never `addNotificationReceivedListener`, which is arrival) `router.push(href, { dangerouslySingular: true })`, or `router.navigate(href)` when the target lives in another tab; never `replace` / `dismissAll` on a tap. A notification that *arrives* in the foreground is a banner (`setNotificationHandler` → `shouldShowBanner: true`), not a navigation — navigate only when it is tapped. If a modal is open, don't push over it: dismiss a clean one (`dismissTo` the origin) or run the dirty-work prompt first, then push |
+| **Splash / boot gate** | the gate is never in history — and the first painted frame is already the right screen | `Stack.Protected` / `<Redirect>` by session state in the root, never `router.push('/splash')`. Session and onboarding state load asynchronously, so hold the native splash until they have resolved: `SplashScreen.preventAutoHideAsync()` at module scope in the root `_layout` (`expo-splash-screen`, re-exported by `expo-router` — global scope, not inside a component, or it runs too late), render nothing (or the splash image) while the state is still loading, compute every guard from a *resolved* value only, then `SplashScreen.hideAsync()` once the real destination has rendered — the same render in which the guard flips, never before. Login-then-Home, or an empty tab bar before content, is the one-frame flash the full-motion pass catches, and "kill → relaunch lands by state" is not true without this |
+| **Unsaved work in a modal** | back and Cancel *ask* before discarding; they never silently lose work | `usePreventRemove(isDirty, ({ data }) => confirm → navigation.dispatch(data.action))` on the modal's **root** screen (the inner stack's `index`) — removing that route *is* leaving the modal, and React Navigation propagates a nested route's prevention up to the modal route in the root stack, so swipe-down, Cancel (`dismiss` / `dismissTo`) and Android back at step one all ask, while back *between* steps stays free. Never put it in a step: the hook blocks every removal of the route it is called in, a plain pop included. If the swipe-down must also be physically disabled while dirty, that is `gestureEnabled: !isDirty` on the `compose` route in the root `_layout`, driven from the draft store — a `<Stack.Screen options>` inside a step only reaches the inner stack and would kill the between-steps edge swipe instead |
 
 ```tsx
 // A multi-step composer: free back between steps, a guarded exit.
+// The hook lives ONLY on the modal's root screen (compose/index.tsx). Removing that
+// route is leaving the modal; steps push on top of it inside the modal's own Stack
+// and pop freely. The hook never goes in a step — it would block back between steps.
 import { usePreventRemove } from 'expo-router/react-navigation'; // SDK 56+ (56.2.10+ for TS types); '@react-navigation/native' before
-import { useNavigation, Stack } from 'expo-router';
+import { useNavigation } from 'expo-router';
 import { Alert } from 'react-native';
 
-export default function ComposeStep() {
+export default function ComposeRoot() {
   const navigation = useNavigation();
   const isDirty = useDraftStore((s) => s.isDirty);
 
+  // Fires for swipe-down, Cancel (dismiss / dismissTo) and Android back at step one —
+  // React Navigation propagates a nested route's prevention to the modal route above it,
+  // so the native swipe-down is cancelled too. No gestureEnabled needed here.
   usePreventRemove(isDirty, ({ data }) => {
     Alert.alert('Discard this post?', 'Your edits will be lost.', [
       { text: 'Keep editing', style: 'cancel' },
@@ -148,33 +162,49 @@ export default function ComposeStep() {
     ]);
   });
 
-  return (
-    <>
-      <Stack.Screen options={{ gestureEnabled: !isDirty }} />   {/* belt-and-braces; the hook already cancels the swipe */}
-      {/* … */}
-    </>
-  );
+  return /* step one … */;
 }
 ```
 
-(Newer expo-router releases are changing this hook so that dispatching inside
-the callback re-prevents the removal — there, clear the dirty flag first,
-then `router.back()`. Check the version you're on.)
+(Version note: the `navigation.dispatch(data.action)` Discard above is the
+documented pattern on every released expo-router — SDK 57 and below. The next
+major makes re-dispatching `data.action` while the flag is still set
+re-prevent it — the alert comes back and the modal never closes. There,
+Discard is `() => { clearDirty(); router.back(); }`. Whichever you ship,
+prove it in the simulator pass: dirty modal → back → Discard closes it in one
+tap.)
 
-The exceptions are the whole list above. **Blocking back anywhere else is a
-defect** — never to keep someone on a paywall, a rating prompt, or a
-"before you go" screen. Apple's own wayfinding test applies to every screen:
-*Where am I? Where can I go? What's there? How do I get out?* A screen with
-no answer to the last question ships with a bug.
+The exceptions are the whole list above, plus one that removes no screen:
+**transient in-screen state consumes back first.** Selection / edit mode on
+a list, an expanded search field, an open in-screen sheet or panel (the
+`@gorhom` row above — a map's place card, a player's queue): the first back
+clears that state, the next back leaves the screen. That is the Android
+convention (contextual action bar, search view and modal bottom sheet all
+behave this way) and it is `BackHandler` inside `useFocusEffect`, returning
+`true` only while the transient state is up — the React Navigation-documented
+pattern, Android-only by nature: on iOS the state keeps its own exit
+(Cancel/Done, the sheet's drag and scrim) and the edge swipe still pops.
+Reach for `usePreventRemove(isTransient, () => clearTransient())` instead
+only when iOS should hold too — selection mode whose header has replaced the
+chevron with Cancel/Done. A press handled in JS can't play the
+predictive-back preview; acceptable for a sheet or a selection, never for a
+whole screen. **Blocking back anywhere else is a defect** — never to keep
+someone on a paywall, a rating prompt, or a "before you go" screen. Apple's
+own wayfinding test applies to every screen: *Where am I? Where can I go?
+What's there? How do I get out?* A screen with no answer to the last
+question ships with a bug.
 
 ## Tabs, stacks inside tabs, and what covers the tab bar
 
-- **Tabs are peers, not a hierarchy.** Switching tabs never slides
-  (`animation: 'none'`), never pushes, and each tab keeps its own stack
+- **Bottom tabs are peers, not a hierarchy.** Switching tabs in the tab bar
+  never slides (`animation: 'none'`; a Material-styled app on JS `Tabs` may
+  cross-fade with `'fade'`), never pushes, and each tab keeps its own stack
   where the user left it. Re-tapping the active tab pops that tab to its
   root; re-tapping again while at the root scrolls to top (`NativeTabs`
   does both, Android from SDK 55; opt out per tab with `disablePopToTop` /
-  `disableScrollToTop` only with a reason).
+  `disableScrollToTop` only with a reason). Swipe-paged top tabs *inside* a
+  screen (`react-native-pager-view` / material-top-tabs) are a pager, not
+  the tab bar — their lateral slide is the finger's, and stays.
 - **Each tab that drills down owns a `Stack`** (`(tabs)/feed/_layout.tsx`)
   with `unstable_settings = { initialRouteName: 'index' }` so a deep link into
   `/feed/123` still has the feed under it.
@@ -204,9 +234,12 @@ no answer to the last question ships with a bug.
   in reverse.
 - **Android**: hardware and predictive back *are* the back button. Predictive
   back peeks at the previous screen; a JS-rebuilt transition or a swallowed
-  back breaks the system animation. Modals and sheets dismiss on back.
-  Intercept back only through the two sanctioned `usePreventRemove` cases —
-  never a bare `BackHandler` that returns `true` to "keep them here".
+  back breaks the system animation. Modals and sheets dismiss on back —
+  including in-screen sheets, selection mode and an expanded search field,
+  which consume the first back (`BackHandler` in `useFocusEffect`, returning
+  `true` only while that state is up). Beyond that, intercept back only
+  through the two sanctioned `usePreventRemove` cases — never a
+  `BackHandler` that returns `true` to "keep them here".
 - **iOS 26 / Liquid Glass**: the `NativeTabs` bar is glass by default and
   minimizes on scroll only if you opt in
   (`<NativeTabs minimizeBehavior="onScrollDown">`); the form sheet shows the
@@ -227,9 +260,11 @@ Walk every screen and write the answer for each:
 | Re-tap the active tab | pop to root; a second tap at the root scrolls to top |
 | Rapid double tap on a row / button | one push, not two (disable on press, or `dangerouslySingular`) |
 | Background → return | same screen, same scroll, same form values |
-| Kill → relaunch | lands by *state* (signed in → home; not → auth; mid-onboarding → that step) |
+| Kill → relaunch | lands by *state* (signed in → home; signed out → the wall in a wall app, home as a guest in a browsable one; mid-onboarding → that step) |
 | Cold start from a deep link | target screen **with a real stack underneath**; back lands somewhere sensible |
-| Every modal | Cancel/Done visible; swipe/back dismiss; dirty → asks first |
+| Link / notification tapped while signed out | sign in → lands on the target with a stack underneath, not on home |
+| Notification tapped while warm (another screen / tab) | target on top, once; back returns to where I was; a foreground arrival shows a banner and does not navigate |
+| Every modal | Cancel/Done visible; swipe/back dismiss; dirty → asks first, and Discard closes it in one tap |
 | Every sheet | drags; tap-scrim dismisses; keyboard up → still dismissible |
 | After each one-way door | back cannot re-enter the old state (login, paywall, session) |
 
@@ -238,15 +273,19 @@ Walk every screen and write the answer for each:
 | Never | Instead |
 |---|---|
 | `push('/home')` after login / onboarding / purchase | `replace` + `Stack.Protected` so the gate leaves history |
+| `replace('/(tabs)')` after a sign-in that one action demanded | the auth sheet closes (guard flip / `dismiss()`), the action runs where it was tapped |
 | A success screen pushed on top of checkout | `replace` the checkout with success; CTA → `dismissTo` |
 | `router.navigate` assumed to "go back to" an existing route | `dismissTo(href)` for go-back-to; `push` for go-deeper |
 | A sheet that grows steps | `presentation: 'modal'` with a stack |
 | A `useState` bottom sheet for something a link could open | a `formSheet` route |
+| A hand-built share sheet, link list, photo/file picker, or an in-app WebView for reading a page | the system controller — `Share.share`, `expo-web-browser`, `expo-image-picker` / `expo-document-picker`; an in-app recipient picker only when the app has recipients of its own |
 | A modal with no Close because "swipe down works" | Cancel/Done in the modal's own header |
 | `gestureEnabled: false` to keep users in a funnel | leave it; only the in-flight and dirty cases may block |
-| A bare `BackHandler` returning `true` | `usePreventRemove` in the two sanctioned cases |
-| Sliding between tabs, or pushing a tab | `animation: 'none'`; tabs are peers |
+| A `BackHandler` returning `true` to keep users on a screen | `usePreventRemove` in the two sanctioned cases; `BackHandler` only to clear transient in-screen state (selection, search, in-screen sheet) — the next back leaves |
+| Sliding between bottom tabs, or pushing a tab | `animation: 'none'` (`'fade'` in a Material-styled app); tabs are peers — a swipe-paged top-tab pager keeps its slide |
 | A detail with an empty stack behind it from a deep link | `initialRouteName` / `withAnchor` |
+| `replace` / `dismissAll` in a notification-tap handler, or `router.push` in the *received* listener | `push(href, { dangerouslySingular: true })` / `navigate` from the *response* listener; foreground arrival = banner |
 | Tab bar visible on a composer / player / checkout | route it in the root stack above `(tabs)` |
 | Modal over modal | action sheet / alert over the modal, or `dismissTo` and re-present |
 | Blocking back for longer than a request takes | let them leave; notify on completion |
+| `dismissTo('/(tabs)')` (or a success route) after a paywall opened from a feature | confirm in place, `dismiss()` — land them back on the feature, unlocked |

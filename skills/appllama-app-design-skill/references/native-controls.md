@@ -94,7 +94,10 @@ into a flow. The control-level rules that live here:
   header; swipe-down and hardware back are extras, never the only exit.
 - iOS swipe-back always works; Android hardware back always does what the
   chevron does — the two exceptions (request in flight, unsaved work) go
-  through `usePreventRemove`, never a bare `BackHandler`.
+  through `usePreventRemove`. Transient in-screen state (selection mode, an
+  expanded search field, an open `@gorhom` sheet) consumes the first back
+  via `BackHandler` in `useFocusEffect`; a `BackHandler` that returns
+  `true` to keep users on a screen is a defect.
 - Deep links: every screen reachable by URL via Expo Router's file routes,
   with a real stack underneath it (`initialRouteName`, `withAnchor`).
 
@@ -140,7 +143,8 @@ Match the OS's numbers, not your instincts:
 - iOS switch: thumb travel ~22 pt in ~0.2 s with a slight squish; haptic on
   toggle.
 - Pressed states: opacity 0.4 for plain-text buttons, scale 0.97 + slight
-  darken for filled buttons, spring back on release.
+  darken for filled buttons, the same 100–150 ms transition back on release
+  (motion.md §7) — a CSS transition, not a spring.
 - Selection cells: checkmark animates in with a short fade+scale, row flashes
   the selection color for ~150 ms.
 - Always add the platform haptic the real control would emit.
