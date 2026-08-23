@@ -15,7 +15,10 @@ like?".
 3. `list_app_screens(app_id=…, flow=…)` — the flow itself, in order. Study
    3–5 apps' versions of the same flow side by side and chart the common
    spine: step count, what each step asks vs. gives, where friction is
-   deliberately placed, where it's removed.
+   deliberately placed, where it's removed — and what each step *is*
+   (a pushed screen, a modal with its own steps, a sheet, an overlay),
+   which the videos show better than stills. Winners are consistent about
+   presentation; that grammar is part of the spec.
 
 High-value flow studies for almost any category: Onboarding (length,
 personalization, permission timing), Paywall (placement, trial framing,

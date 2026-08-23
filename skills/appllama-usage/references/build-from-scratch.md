@@ -53,8 +53,15 @@ where you stop being a catalog and start being a design director.
 
 From `patterns.md`, write the app's spec: the best features across all
 studied apps, minus the bloat, plus the opening you found. Screen list with
-flows, in journey order. Get user sign-off on the spec if they're present;
-otherwise state your choices and proceed.
+flows, in journey order — and the **navigation map**: for every screen, what
+it *is* (push, modal with its own stack, form sheet, full-screen modal,
+overlay, tab root) and what back does from it, including the one-way doors
+(sign-in, onboarding done, purchase, finished session) where back must not
+re-enter the old state. The grammar comes from appllama-app-design-skill's
+references/navigation.md; the evidence comes from the flows you walked —
+note whether each winner presents its composer as a modal, its filters as a
+sheet, its detail as a push, and copy that consistency. Get user sign-off on
+the spec if they're present; otherwise state your choices and proceed.
 
 ## Phase 5 — Build screen by screen
 
@@ -83,7 +90,10 @@ For EVERY screen, in journey order:
 
 Walk the whole app in the simulator as a new user, three times: happy path,
 skeptic path (skip everything skippable), abuse path (bad input, offline,
-interrupt mid-flow). Compare each flow against the best reference you
+interrupt mid-flow, and every back path — chevron, edge swipe, Android
+hardware back, active-tab re-tap — especially right after sign-in,
+onboarding, a purchase and a finished session, where back must fail to
+re-enter the old state). Compare each flow against the best reference you
 studied. If any screen of yours is worse than the best equivalent screen in
 your research, it goes back into the loop. **You cannot declare the build
 finished until every screen holds that comparison.**

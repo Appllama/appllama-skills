@@ -59,7 +59,16 @@ store), commit to state on submit/debounce.
 ## Animations
 
 - Anything janky mid-gesture: confirm the animation runs as a worklet on the
-  UI thread; a single `runOnJS` in `onChange` is enough to ruin it.
+  UI thread; a single `scheduleOnRN` (the Reanimated 4 name for `runOnJS`)
+  or `setState` inside `onUpdate` is enough to ruin it — move it to `onEnd`
+  or a `useAnimatedReaction` at a threshold.
+- Measure on a **release build on the slowest supported device**. Expo Go
+  and dev builds run the JS thread slowly enough to hide (or invent) the
+  stutter you are chasing.
+- ProMotion iPhones cap third-party animation at 60 fps unless
+  `CADisableMinimumFrameDurationOnPhone` is set in `ios.infoPlist` (recent
+  Expo SDKs do); at 120 Hz the budget is 8 ms, which is why UI-thread motion
+  matters even more on mobile.
 - Heavy screens committed during a transition stall the JS thread and hitch
   even UI-thread animations — defer the destination screen's expensive work
   until `InteractionManager.runAfterInteractions` / after the transition ends.

@@ -59,6 +59,9 @@ should be checkable in a screenshot.
 
 Screens live in journeys. After the screen passes, walk one step before and
 one step after it in the simulator: entrance transition, exit transition,
-state carried across. Use `get_flow_apps` + `list_app_screens(flow=…)` if
+state carried across — and what back does from it on iOS and Android (the
+back-stack audit in appllama-app-design-skill's references/navigation.md).
+If the screen is a sheet, a modal or a step behind a one-way door, verify
+its presentation matches what it *is*, not just how it looks. Use `get_flow_apps` + `list_app_screens(flow=…)` if
 you need to see how winners chain the surrounding steps
 (references/research-methods.md).

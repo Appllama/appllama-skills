@@ -4,7 +4,7 @@ description: Use the Appllama MCP (mcp.appllama.io) well — research real top-g
 license: MIT
 metadata:
   author: Appllama (appllama.io)
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Appllama Usage Skill

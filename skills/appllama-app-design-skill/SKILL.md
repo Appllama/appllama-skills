@@ -1,10 +1,10 @@
 ---
 name: appllama-app-design-skill
-description: Build native-feeling, benchmark-quality mobile app screens (Expo / React Native). Use when designing or implementing any mobile UI — screens, flows, onboarding, paywalls, tab bars, settings, empty states — or when polishing motion, typography, dark mode, or perceived performance. Enforces Apple HIG fidelity, semantic colors, native controls, anti-slop discipline, purposeful Reanimated motion, a full-motion simulator-verified iteration loop, and a study-real-apps-first workflow (pairs with the Appllama MCP). Trigger on "build a screen", "make this screen better", "design the onboarding", "polish the UI", "make it feel native", or any mobile design/implementation task.
+description: Build native-feeling, benchmark-quality mobile app screens (Expo / React Native). Use when designing or implementing any mobile UI — screens, flows, onboarding, paywalls, tab bars, sheets, settings, empty states — or when polishing motion, gestures, navigation, typography, dark mode, or perceived performance. Enforces Apple HIG fidelity, semantic colors, native controls, anti-slop discipline, navigation semantics (push vs replace, modal vs sheet vs overlay, the one-way doors where back must not exist), a strict motion bar (frequency gate, exact springs/curves/durations, UI-thread discipline, haptics), a full-motion simulator-verified iteration loop, and a study-real-apps-first workflow (pairs with the Appllama MCP). Trigger on "build a screen", "make this screen better", "design the onboarding", "wire up this flow", "add a bottom sheet", "polish the UI", "make it feel native", "review the animations", or any mobile design/implementation task.
 license: MIT
 metadata:
   author: Appllama (appllama.io)
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # Appllama App Design Skill
@@ -37,13 +37,19 @@ of design iteration and A/B testing. Your first move on any screen is research:
 
 Default stack assumptions (override only if the project already differs):
 
-- **Expo + Expo Router**, React Native, TypeScript.
-- `react-native-reanimated` for motion, `react-native-gesture-handler` for
-  gestures, `@shopify/flash-list` (or FlashList v2) for any list that can grow.
+- **Expo + Expo Router** (native stack, `formSheet` routes, `NativeTabs`),
+  React Native, TypeScript.
+- `react-native-reanimated` 4 + `react-native-worklets` for motion,
+  `react-native-gesture-handler` for gestures, `expo-haptics`,
+  `react-native-keyboard-controller` for anything that tracks the keyboard,
+  `@shopify/flash-list` (v2) for any list that can grow.
 - `expo-image` for images (and SF Symbols via `source="sf:name"` on iOS),
   `expo-video` / `expo-audio` (never the deprecated `expo-av`).
 - `react-native-safe-area-context` for insets. Never hard-code notch numbers.
 - `process.env.EXPO_OS` over `Platform.OS` for compile-time platform checks.
+- Install with `npx expo install <pkg>` so versions match the SDK; never
+  hand-roll a component a listed package already solves
+  ([references/native-controls.md](references/native-controls.md) has the picks).
 
 ## Native fidelity laws
 
@@ -83,15 +89,59 @@ Violating any of them is a finding, not a style preference.
 9. **Navigation titles belong to the navigator.** Use the stack's native title
    (and large-title collapse behavior on iOS) rather than a hand-rolled header
    whenever possible.
-10. **Haptics are punctuation.** Light impact on selection/confirm on iOS,
-    success/warning notifications for outcomes. Never on scroll, never in
-    loops. Guard with platform checks.
+10. **Haptics are punctuation.** `selectionAsync` when a value ticks past a
+    step, light impact when something snaps home or a drag commits,
+    notification success/error for outcomes. Same frame as the visual, one
+    per user action, never the only feedback — and never on scroll, never
+    per frame, never on an entrance the user didn't cause.
 11. **Format numbers like a product, not a database**: 1.4M, 38k, $4.99. Trim
     trailing zeros. Localize dates.
 12. **Root scroll behavior**: screens that can ever overflow wrap content in a
     ScrollView (first component in the route) with
     `contentInsetAdjustmentBehavior="automatic"`. Use `useWindowDimensions`,
     never `Dimensions.get()`.
+
+## Navigation laws
+
+Navigation is the part of a screen you can't screenshot, and users feel it
+within ten seconds. Every transition answers three questions: *what is the
+destination to here* (deeper → push; a self-contained task → modal; a short
+interruption → form sheet; must see through → overlay; a replacement of
+where I am → replace), *must the user be able to come back*, and *what does
+back do afterwards* — chevron, edge swipe, Android hardware back, active-tab
+re-tap. The full method, verb by verb and case by case, is
+[references/navigation.md](references/navigation.md). The laws:
+
+1. **Push goes deeper, replace moves on.** `router.push` when the user will
+   want to return here; `router.replace` / `<Redirect>` when coming back
+   would land in a state the world has moved past. Don't rely on
+   `navigate` to unwind — `dismissTo(href)` says "finish and land on X".
+2. **Presentation is meaning.** A self-contained task with steps is a
+   `modal` with its own stack and its own Cancel/Done; a short interruption
+   is a `formSheet` with detents; immersive content is a `fullScreenModal`
+   with an explicit Close; something that must sit on top of a visible
+   screen is a `transparentModal` overlay; destructive confirms are action
+   sheets; item actions are context menus. A sheet that grows a second step
+   was a modal all along. If a link could open it, it is a route.
+3. **One-way doors remove themselves from history.** Sign-in / sign-up,
+   onboarding completion, a successful purchase, a finished session, an
+   expired target: `Stack.Protected` guards and `replace` so back can never
+   re-enter the old state — Android back from home exits the app, never
+   shows Login; leaving a thank-you screen never re-opens the paywall.
+4. **Back is blocked in exactly two cases** — an irreversible request in
+   flight (seconds, with visible progress) and unsaved work in a modal
+   (ask first) — both through `usePreventRemove`, never a bare
+   `BackHandler`, never to keep someone in a funnel. Everywhere else the
+   iOS edge swipe and Android hardware back work, always.
+5. **Tabs are peers.** No slide, each tab keeps its stack, re-tapping the
+   active tab pops to root (and, at the root, scrolls to top); full-attention screens
+   (composer, player, checkout) live in the root stack *above* the tabs so
+   the tab bar gets out of the way.
+6. **Deep links land with a stack underneath** (`initialRouteName`,
+   `withAnchor`) so back has somewhere to go; cold start lands by state.
+7. **Study the grammar, not just the pixels.** When you walk a winning flow
+   on Appllama, note what each step *is* — push, modal, sheet — and copy
+   that consistency.
 
 ## Anti-slop laws
 
@@ -133,21 +183,50 @@ explicitly asks for the thing AND you can articulate why it fits this product.
 ## Motion laws
 
 Motion is the highest-leverage polish surface and the easiest to overdo.
+Decisions are made in order — the method, the exact values and the
+implementation are in [references/motion.md](references/motion.md); the
+physics of *feel* in [references/fluid-interfaces.md](references/fluid-interfaces.md).
 
-- **Every animation needs a reason**: continuity (element moves between
-  states), causality (response to a gesture), or orientation (where did this
-  come from). Decoration-only motion gets cut.
-- **Reanimated worklets on the UI thread** for anything tracking a gesture.
-  Gesture → animation must never hop the JS thread.
-- **Springs over durations** for anything the user "touches"; gentle
-  timing curves (250–350 ms, ease-out) for anything the system initiates.
-- **Entering/exiting animations** (`FadeIn`, `SlideInDown`, layout transitions)
-  on list items, modals, and conditional content — subtle, 150–250 ms.
-- **Respect Reduce Motion.** Query the accessibility setting and collapse
-  spatial animations to cross-fades.
-- The bar to hit: 60 fps on a mid-tier device, zero dropped frames during the
-  hero transition of your flow. Measure, don't vibe — see
-  [references/performance.md](references/performance.md).
+- **The frequency gate comes first.** Something met 100+ times a day (tab
+  switch, keyboard, scroll, back) gets nothing beyond the platform default;
+  tens a day gets near-imperceptible (<150 ms); occasional (sheets, modals,
+  toasts) gets standard motion; the delight budget is spent only on rare,
+  first-time moments. **Tabs never slide. Screen transitions stay at the
+  platform default.** Passing this gate with zero lines of code is a
+  success.
+- **Name the purpose in one word** — feedback, spatial consistency, state
+  indication, preventing a jarring change, explanation, delight — or don't
+  build it. Data the user is reading never moves for style.
+- **Cheapest tool that works**: a Reanimated CSS transition for state
+  changes, layout animations for mount/unmount/reflow, shared values +
+  gestures only for what a finger touches or scroll drives, the native stack
+  for screens, `formSheet` for sheets, `NativeTabs` for tabs, native menus
+  for menus. `transform` and `opacity` only (an absolute, childless element
+  may animate `width`); never `scale(0)`.
+- **If a finger was involved, it's a spring** — from the live value, with the
+  release velocity handed in, interruptible at any instant, rubber-banded at
+  boundaries, committed by momentum (a flick is enough). One spring
+  vocabulary per app: `SETTLE { duration: 400, dampingRatio: 1 }`,
+  `SNAP { 400, 0.8 }`, `SHEET { 300, 0.8 }`; bounce only after momentum.
+- **Everything else is timing, under 300 ms, strong ease-out** —
+  `Easing.bezier(0.23, 1, 0.32, 1)` to enter/exit, `(0.77, 0, 0.175, 1)` to
+  move on screen; never ease-in on UI. Press 100–150 ms at scale 0.97,
+  feedback on press-*in*. Exits faster than entrances, along the same path.
+- **Off the JS thread.** No `setState` in a gesture or scroll handler, no
+  `scheduleOnRN`/`runOnJS` per frame, no shared-value reads in render, no
+  `PanResponder`, no `entering` on recycled list rows, no animated `height`
+  to collapse a header, no JS-rebuilt screen transition.
+- **Haptics** follow fidelity law 10 — same frame, one per action, never
+  alone.
+- **Respect Reduce Motion** — fewer and gentler, not zero: spatial motion
+  collapses to cross-fades, screen transitions to `fade`, feedback survives;
+  and no animation targets a height measured at default text size.
+- The bar: 60 fps on a mid-tier device, zero dropped frames through the hero
+  flow — measured on a release build, not vibed in Expo Go
+  ([references/performance.md](references/performance.md)). Ready-to-build
+  recipes live in [references/motion-recipes.md](references/motion-recipes.md);
+  reviewing and auditing motion — and deciding what *not* to animate — in
+  [references/motion-review.md](references/motion-review.md).
 
 ## State architecture
 
@@ -170,7 +249,8 @@ Screens that feel great are screens whose state is boring:
 - Skeletons only for content whose shape you know; otherwise progressive
   reveal. Never a full-screen spinner for a partial update.
 - FlashList for every list; give stable keys.
-- Preload the next screen's data on press-in, not on navigation-complete.
+- Preload the next screen on press-in (`router.prefetch` / `<Link prefetch>`
+  plus its data), not on navigation-complete.
 - Images: right-size sources, `expo-image` with `recyclingKey` in lists,
   thumbhash/blurhash placeholders.
 - Cold-start TTI and bundle discipline live in
@@ -218,6 +298,10 @@ stills**. Screen-record the entire flow end to end
 
 - every screen transition, push/pop, tab switch
 - every modal and sheet: present, drag, dismiss — and cancel mid-drag
+- every back path: chevron, edge swipe, Android hardware back, active-tab
+  re-tap — and, after each one-way door (sign-in, onboarding done,
+  purchase, finished session), an attempt to go back that must fail to
+  re-enter the old state
 - the keyboard, both directions: appear (does the layout glide, is the
   focused input visible?) and dismiss (does anything jump-cut?)
 - every user interaction: press states, gesture follow-through, interrupted
@@ -240,13 +324,21 @@ zero UX glitches. One glitchy frame means the flow is not done.
 
 - [ ] Studied 10+ real reference screens for this screen type (via Appllama
       MCP when available) and can name the pattern you adopted
+- [ ] Navigation answered: what this screen *is* (push / modal / sheet /
+      overlay / replace), what back does from it on iOS and Android, and —
+      if it sits behind a one-way door — that back cannot re-enter the old
+      state; modals carry Cancel/Done; deep links land with a stack
 - [ ] Light + dark mode verified in the simulator
 - [ ] Safe areas / Dynamic Island / home indicator verified
 - [ ] Long-content, empty, loading, and error states designed — not defaulted
+- [ ] Motion passed the gate (frequency tier + named purpose for every
+      animation; nothing slides between tabs; screen transitions native),
+      uses the app's one spring/easing vocabulary, runs off the JS thread,
+      and every gesture hands its velocity to a spring
 - [ ] Motion: the full flow screen-recorded and scrubbed — entrances,
       presses, transitions, modals, keyboard — native feel, zero glitch or
-      wrong-color frames; Reduce Motion respected; 60 fps measured on the
-      target device profile
+      wrong-color frames; Reduce Motion respected; 60 fps measured on a
+      release build on the target device profile
 - [ ] Dynamic Type XL doesn't break layout; text is selectable where useful
 - [ ] All tap targets ≥ 44pt; contrast passes in both themes
 - [ ] Assets: single style family, crisp at @3x, no compositing halos
@@ -257,8 +349,14 @@ zero UX glitches. One glitchy frame means the flow is not done.
 
 | File | Load when |
 |---|---|
-| [references/native-controls.md](references/native-controls.md) | Choosing/wiring iOS+Android native controls, menus, pickers, sheets |
-| [references/motion.md](references/motion.md) | Any Reanimated work: gestures, transitions, springs, layout animations |
+| [references/navigation.md](references/navigation.md) | Wiring any screen into a flow: push vs replace vs dismissTo, modal vs form sheet vs overlay, tabs, deep links, and the one-way doors where back must not exist — plus the back-stack audit |
+| [references/native-controls.md](references/native-controls.md) | Choosing/wiring iOS+Android native controls, menus, pickers, sheets, forms; the library picks |
+| [references/motion.md](references/motion.md) | Any motion: the decision sequence (frequency gate → purpose → tool → properties → spring/curve → thread), exact values, haptics, reduced motion, the never-ship list |
+| [references/motion-recipes.md](references/motion-recipes.md) | Building a press, a drag-to-dismiss sheet, swipe-to-delete, a collapsing header, list entrances, keyboard-synced UI, a tab indicator, a toast, a threshold haptic |
+| [references/fluid-interfaces.md](references/fluid-interfaces.md) | Anything a finger drags, anything translucent, anything that gives feedback: response, interruptibility, velocity hand-off, projection, rubber-banding, materials & depth, the design principles |
+| [references/motion-review.md](references/motion-review.md) | Reviewing a diff's motion, auditing an app's motion into plans, or hunting for (and rejecting) places that could animate |
+| [references/motion-vocabulary.md](references/motion-vocabulary.md) | Decoding a loose brief ("make it bouncy") or writing a motion spec with exact terms |
+| [references/variant-lab.md](references/variant-lab.md) | An open brief or a hero screen where direction matters: build 3 divergent variants behind a dev-only switcher and let the user pick |
 | [references/performance.md](references/performance.md) | Jank, slow TTI, big bundles, memory leaks, profiling method |
 | [references/image-assets.md](references/image-assets.md) | Generating illustrations/icons/hero art with image models |
-| [references/simulator-loop.md](references/simulator-loop.md) | Final verification checklist + device matrix |
+| [references/simulator-loop.md](references/simulator-loop.md) | Final verification checklist (layout, theming, motion, interaction, navigation & back stack, state) + device matrix |
