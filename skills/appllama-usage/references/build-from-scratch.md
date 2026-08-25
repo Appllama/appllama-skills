@@ -58,7 +58,7 @@ it *is* (push, modal with its own stack, form sheet, full-screen modal,
 overlay, tab root) and what back does from it, including the one-way doors
 (sign-in, onboarding done, purchase, finished session) where back must not
 re-enter the old state. The grammar comes from appllama-app-design-skill's
-references/navigation.md; the evidence comes from the flows you walked —
+Navigation laws; the evidence comes from the flows you walked —
 note whether each winner presents its composer as a modal, its filters as a
 sheet, its detail as a push, and copy that consistency. Get user sign-off on
 the spec if they're present; otherwise state your choices and proceed.

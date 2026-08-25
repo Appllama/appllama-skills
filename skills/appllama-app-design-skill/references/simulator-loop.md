@@ -54,55 +54,16 @@ re-verify for free.
 - [ ] Keyboard appear AND dismiss recorded: layout glides with it, focused
       input stays visible, nothing jump-cuts or reflows after settling
 - [ ] Sustained 60 fps through every transition of the flow (measure with
-      the perf monitor / Instruments, don't eyeball) — on a **release build**;
-      Expo Go and a dev build hide exactly the jank you're hunting
-- [ ] Gesture motion judged on a device (the slowest you support), not only
-      the simulator: velocity hand-off, haptic timing and rubber-banding
-      cannot be read from a recording alone
-- [ ] Reduce Motion enabled → custom spatial animations become crossfades;
-      native screen transitions are left to the system (on iOS they still
-      slide unless the user also chose Prefer Cross-Fade Transitions —
-      correct, not a defect); feedback (opacity/color) survives
-- [ ] Dynamic Type at XL: no animation targets a height measured at default
-      type; keyboard-synced UI still clears the focused input
+      the perf monitor / Instruments, don't eyeball)
+- [ ] Reduce Motion enabled → spatial animations become fades
 
 **Interaction**
-- [ ] Every tappable ≥ 44pt; class-appropriate press feedback on press-*in*
-      (100–150 ms: scale 0.97 on buttons/cards/tiles, background highlight
-      on rows and cells — never a scaling row — opacity on bar buttons and
-      plain-text actions); haptics where native controls would have them —
-      same frame as the visual, never alone
+- [ ] Every tappable ≥ 44pt; press states visible; haptics where native
+      controls would have them
 - [ ] Keyboard: appears with the right type, doesn't cover the focused input,
       dismisses sensibly
-- [ ] Gestures feel-checked by hand, not just watched: flick it, interrupt
-      it mid-flight, reverse it, drag past the boundary (rubber-band, not a
-      wall); release continues at the finger's speed
+- [ ] Back gesture (iOS edge swipe) works everywhere it should
 - [ ] Rapid double-taps don't double-navigate or double-submit
-
-**Navigation & back stack** (the audit in
-[navigation.md](navigation.md) — write the answer for every screen)
-- [ ] Chevron, iOS edge swipe and Android hardware back all do the same
-      thing: the previous screen in *this* hierarchy
-- [ ] Every one-way door holds: after sign-in, onboarding, purchase, a
-      finished session — back cannot re-enter the old state; Android back
-      from home exits the app, never shows Login
-- [ ] Every modal has Cancel/Done in its own header; swipe-down / back
-      dismiss it; unsaved work asks before discarding — and Discard closes
-      it in one tap (no second prompt)
-- [ ] Every sheet drags, tap-on-scrim dismisses, keyboard up → still
-      dismissible; no sheet has grown a second step
-- [ ] Tabs: the tab bar doesn't slide, each tab keeps its stack, re-tap
-      pops to root (and, at the root, scrolls to top); full-attention
-      screens (composer, player, checkout) cover the tab bar
-- [ ] Cold start from a deep link / notification lands with a real stack
-      underneath; tapped while signed out → sign in lands on the target,
-      not home; tapped while warm → target on top, back returns to the
-      previous place; kill → relaunch lands by state
-- [ ] Only the two sanctioned cases block back (request in flight, dirty
-      modal) — both via `usePreventRemove`; transient in-screen state
-      (selection mode, expanded search, an open in-screen sheet) clears on
-      the first back and the next back leaves the screen — verified on
-      Android
 
 **State**
 - [ ] Background the app mid-flow → return: state intact

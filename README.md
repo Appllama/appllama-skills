@@ -41,30 +41,11 @@ design language, then build screens that hold up next to them.
 | Skill | What it does |
 |---|---|
 | [`appllama-usage`](skills/appllama-usage/SKILL.md) | The research engine: how to use the [Appllama MCP](https://appllama.io/mcp) like a design director — the full tool map, and the playbooks for building an app from scratch, improving an existing screen, and flow & element research. |
-| [`appllama-app-design-skill`](skills/appllama-app-design-skill/SKILL.md) | The build bar: native-feeling Expo / React Native screens — Apple HIG fidelity, semantic colors, native controls, anti-slop discipline, navigation that behaves, a strict motion bar, and a full-motion simulator loop (whole flows recorded and scrubbed frame by frame, not screenshots). The reference library below has the detail. |
+| [`appllama-app-design-skill`](skills/appllama-app-design-skill/SKILL.md) | The build bar: native-feeling Expo / React Native screens — Apple HIG fidelity, semantic colors, native controls, anti-slop discipline, navigation that behaves (push vs replace, sheets and overlays, the one-way doors where back must not exist), a strict motion bar (should it animate at all, springs that carry the finger's velocity, nothing on the JS thread), generated image assets, and a full-motion simulator loop (whole flows recorded and scrubbed frame by frame, not screenshots). |
 
 They are designed as a pair: **usage** decides what to study, **design**
 decides how to build, and both insist the loop only ends in a simulator
 with a screen you can't fault.
-
-### Inside the design skill
-
-A short set of laws, and a reference library the agent loads only when the
-task calls for it:
-
-| Reference | What it settles |
-|---|---|
-| [`navigation`](skills/appllama-app-design-skill/references/navigation.md) | push vs replace vs `dismissTo` · modal vs form sheet vs overlay · tabs and what covers the tab bar · deep links with a real stack underneath · the one-way doors (sign-in, onboarding done, purchase, finished session) · the back-stack audit |
-| [`motion`](skills/appllama-app-design-skill/references/motion.md) | the decision sequence — should it animate at all → purpose → cheapest tool → properties → spring or curve → off the JS thread — with exact values, haptics, reduced motion, and the never-ship list |
-| [`motion-recipes`](skills/appllama-app-design-skill/references/motion-recipes.md) | press feedback, drag-to-dismiss sheet, swipe-to-delete, collapsing header, list entrances, keyboard-synced UI, tab indicator, toast, threshold haptics — ready to build |
-| [`fluid-interfaces`](skills/appllama-app-design-skill/references/fluid-interfaces.md) | the physics of feel: response, interruptibility, velocity hand-off, momentum projection, rubber-banding — plus materials and depth, multimodal feedback, typography, and the design principles behind all of it |
-| [`motion-review`](skills/appllama-app-design-skill/references/motion-review.md) | reviewing a diff's motion, auditing a whole app into plans any agent can execute, and hunting for (and rejecting) places that could animate |
-| [`motion-vocabulary`](skills/appllama-app-design-skill/references/motion-vocabulary.md) | the exact words for motion, so a brief that says "bouncy" becomes a spec that says what it means |
-| [`variant-lab`](skills/appllama-app-design-skill/references/variant-lab.md) | three genuinely different directions behind a dev-only switcher — for open briefs and hero screens where direction matters more than polish |
-| [`native-controls`](skills/appllama-app-design-skill/references/native-controls.md) | the iOS + Android control map, menus, sheets, forms — and the library picks, so nothing solved gets hand-rolled |
-| [`performance`](skills/appllama-app-design-skill/references/performance.md) | measure → fix → re-measure, the budgets, and the thread discipline behind 60 fps |
-| [`image-assets`](skills/appllama-app-design-skill/references/image-assets.md) | one style system, generated at the highest quality, post-processed and verified in both themes |
-| [`simulator-loop`](skills/appllama-app-design-skill/references/simulator-loop.md) | the verification checklist — layout, theming, motion, interaction, navigation and back stack, state — and the device matrix |
 
 ## Install
 
