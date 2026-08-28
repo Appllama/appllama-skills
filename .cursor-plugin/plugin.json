@@ -1,0 +1,29 @@
+{
+  "name": "appllama",
+  "displayName": "Appllama",
+  "version": "1.0.0",
+  "description": "Appllama is the design library of the highest grossing mobile apps: their screens, flows, onboarding and paywalls, with revenue context. Study what wins, then build from it.",
+  "author": {
+    "name": "Appllama",
+    "email": "hey@appllama.io"
+  },
+  "homepage": "https://appllama.io/mcp",
+  "repository": "https://github.com/Appllama/appllama-skills",
+  "license": "MIT",
+  "keywords": [
+    "cursor",
+    "plugin",
+    "mcp",
+    "appllama",
+    "design",
+    "ui",
+    "ux",
+    "ios",
+    "mobile",
+    "onboarding",
+    "paywall",
+    "skills"
+  ],
+  "logo": "https://public.appllama.io/llama.png",
+  "mcpServers": "mcp.json"
+}

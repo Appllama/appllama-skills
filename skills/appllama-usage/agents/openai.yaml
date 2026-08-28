@@ -1,0 +1,11 @@
+interface:
+  display_name: "Appllama research"
+  short_description: "Study screens, flows and paywalls from top earning iOS apps, then build from what wins."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "appllama"
+      description: "Appllama, the design library of top grossing mobile apps"
+      transport: "streamable_http"
+      url: "https://mcp.appllama.io/mcp"
