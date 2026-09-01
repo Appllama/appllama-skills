@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "Appllama": {
+      "type": "http",
+      "url": "https://mcp.appllama.io/mcp"
+    }
+  }
+}

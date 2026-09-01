@@ -1,0 +1,26 @@
+{
+  "name": "appllama",
+  "displayName": "Appllama",
+  "version": "1.0.0",
+  "description": "Appllama MCP for mobile design research: search top earning iOS apps, walk their screens, study onboarding and paywalls, then build from what wins.",
+  "author": {
+    "name": "Appllama",
+    "email": "hey@appllama.io",
+    "url": "https://appllama.io"
+  },
+  "homepage": "https://appllama.io/mcp",
+  "repository": "https://github.com/Appllama/appllama-skills",
+  "license": "MIT",
+  "keywords": [
+    "mcp",
+    "design",
+    "ui",
+    "ux",
+    "ios",
+    "mobile",
+    "onboarding",
+    "paywall",
+    "expo",
+    "react-native"
+  ]
+}
